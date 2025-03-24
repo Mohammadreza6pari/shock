@@ -8,18 +8,21 @@ class Diffusion(models.Model):
     EXECUTABLE_JAR_FILE_PATH = './diffusion/diffusion_files/diffusion_version3.jar'
     BASE_INTEGRATION_FILES_PATH = './diffusion/diffusion_files/'
 
+    SUCCESS_CMD_OUTPUT = "Time is"
 
     STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('running', 'Running'),
         ('finished', 'Finished'),
         ('failed', 'Failed'),
+        ('deleted', 'Deleted')
 
     )
     id = models.AutoField(primary_key=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='pending')
+    logs = models.JSONField(default=dict, blank=True)
     
     number_of_iterations = models.PositiveIntegerField() 
     integration = models.CharField(max_length=36) #TODO: That's better it maps to integration model
@@ -39,6 +42,7 @@ class Diffusion(models.Model):
     threshold_two = models.FloatField()
     threshold_three = models.FloatField()
     
+
     def __str__(self):
         return f"Diffusion {self.id} - {self.status}"
     
