@@ -100,3 +100,4 @@ class Diffusion(models.Model):
             self.save(update_fields=['status'])
             thread = threading.Thread(target=run_diffusion, args=(self.id,))
             thread.start()
+            
