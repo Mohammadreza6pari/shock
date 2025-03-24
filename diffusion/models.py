@@ -15,6 +15,7 @@ class Diffusion(models.Model):
         ('running', 'Running'),
         ('finished', 'Finished'),
         ('failed', 'Failed'),
+        ('deleted', 'Deleted')
 
     )
     id = models.AutoField(primary_key=True)
