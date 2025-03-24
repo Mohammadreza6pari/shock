@@ -4,7 +4,9 @@ from rest_framework.response import Response
 from rest_framework.generics import get_object_or_404
 from rest_framework import views, status
 import shutil
-
+from django.http import HttpResponse
+from .utils import create_zip_file_of_folder
+import os
 
 class DiffusionSetupView(views.APIView):
     serializer_class = serializers.DiffusionSerializer
@@ -44,3 +46,20 @@ class DiffusionSetupView(views.APIView):
         diffusion.save()
   
         return Response({"message": "Diffusion deleted"}, status=status.HTTP_200_OK)
+    
+
+class DiffusionDownloadView(views.APIView):
+    def get(self, request, diffusion_id):
+        """Generate a ZIP file of diffusion output and return it as a download"""
+        diffusion = get_object_or_404(models.Diffusion, id=diffusion_id)
+        create_zip_file_of_folder(diffusion.output_zip_file_path, diffusion.output_zip_file_name)
+
+        zip_path = diffusion.output_zip_file_name
+
+        with open(zip_path, "rb") as zip_file:
+            response = HttpResponse(zip_file.read(), content_type="application/zip")
+            response["Content-Disposition"] = f'attachment; filename="{zip_path}"'
+        
+        os.remove(zip_path)
+        
+        return response
