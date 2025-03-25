@@ -20,6 +20,7 @@ class Diffusion(models.Model):
 
     )
     id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=72, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='pending')
