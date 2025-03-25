@@ -6,6 +6,7 @@ class DiffusionSerializer(serializers.ModelSerializer):
         model = Diffusion
         fields = [
             "id",
+            "name",
             "created_at",
             "updated_at",
             "status",

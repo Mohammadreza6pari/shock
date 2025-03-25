@@ -3,8 +3,9 @@ from django.contrib.postgres.fields import ArrayField
 import os 
 import threading
 
+
 class Diffusion(models.Model):
-    RESULT_BASE_PATH = './diffusion/outputs/'
+    RESULT_BASE_PATH = './diffusion/outputs/csv/'
     EXECUTABLE_JAR_FILE_PATH = './diffusion/diffusion_files/diffusion_version3.jar'
     BASE_INTEGRATION_FILES_PATH = './diffusion/diffusion_files/'
 
@@ -19,6 +20,7 @@ class Diffusion(models.Model):
 
     )
     id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=72, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='pending')
@@ -59,6 +61,14 @@ class Diffusion(models.Model):
     @property
     def output_folder_path(self):
         return Diffusion.RESULT_BASE_PATH + self.output_file_name
+
+    @property
+    def output_zip_file_path(self):
+        return Diffusion.RESULT_BASE_PATH + "zip/" + self.output_file_name
+
+    @property
+    def output_zip_file_name(self):
+        return self.output_zip_file_path + str(self.id) + ".zip"
 
     @property
     def output_folder_path_exists(self):
@@ -104,4 +114,4 @@ class Diffusion(models.Model):
             self.save(update_fields=['status'])
             thread = threading.Thread(target=run_diffusion, args=(self.id,))
             thread.start()
-            
+
