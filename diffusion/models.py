@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.postgres.fields import ArrayField
 import os 
 import threading
-
+from dataset.models import Dataset
 
 class Diffusion(models.Model):
     RESULT_BASE_PATH = './diffusion/outputs/csv/'
@@ -27,7 +27,7 @@ class Diffusion(models.Model):
     logs = models.JSONField(default=dict, blank=True)
     
     number_of_iterations = models.PositiveIntegerField() 
-    integration = models.CharField(max_length=36) #TODO: That's better it maps to integration model
+    integration = models.ForeignKey(Dataset, on_delete=models.CASCADE)
     sources = ArrayField(
         models.CharField(max_length=12, blank=True, null=True),
     )
@@ -76,7 +76,7 @@ class Diffusion(models.Model):
 
     @property
     def output_integration_folder_path(self):
-        return os.path.join(Diffusion.BASE_INTEGRATION_FILES_PATH, f"{self.integration}.csv")
+        return self.integration.file_path
             
     def create_output_folder(self):
         if self.output_folder_path_exists:
