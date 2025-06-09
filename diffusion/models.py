@@ -161,10 +161,13 @@ class Diffusion(models.Model):
             group_map = {}
             if country_groups:
                 for group in country_groups:
-                    if len(group) < 2:
-                        continue
-                    group_name = "_".join(sorted(group))
-                    for country in group:
+                    if isinstance(group, dict):
+                        group_name = group['name']
+                        members = group['members']
+                    else:
+                        members = group
+                        group_name = "_".join(sorted(members))  # fallback
+                    for country in members:
                         group_map[country] = group_name
 
             def map_country(name):
