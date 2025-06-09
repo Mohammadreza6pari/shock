@@ -63,3 +63,42 @@ class DiffusionDownloadView(views.APIView):
         os.remove(zip_path)
         
         return response
+
+
+class DiffusionIterationDetailView(views.APIView):
+    def post(self, request, diffusion_id):
+        data = request.data
+
+        country_groups = data.get('country_groups', [])
+        group_all_industries = data.get('group_all_industries', False)
+        filters = data.get('filters', {})
+
+        industries = filters.get('industries', [])
+        countries = filters.get('countries', [])
+        grouped_countries = filters.get('grouped_countries', [])
+        limit_largest_shocks = filters.get('limit_largest_shocks', 5)
+
+        diffusion = get_object_or_404(models.Diffusion, id=diffusion_id)
+
+        is_ok, result = diffusion.process_logs(
+            limit_largest_shocks=limit_largest_shocks,
+            country_groups=country_groups,
+            countries=countries,
+            grouped_countries=grouped_countries
+        )
+
+        if not is_ok:
+            return Response({"error": result}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({
+            "diffusion_id": diffusion_id,
+            "graphs": result,
+            "country_groups": country_groups,
+            "group_all_industries": group_all_industries,
+            "filters": {
+                "industries": industries,
+                "countries": countries,
+                "grouped_countries": grouped_countries,
+                "limit_largest_shocks": limit_largest_shocks,
+            }
+        }, status=status.HTTP_200_OK)

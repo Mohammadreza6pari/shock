@@ -3,11 +3,14 @@ from django.contrib.postgres.fields import ArrayField
 import os 
 import threading
 from dataset.models import Dataset
+import pandas as pd
+from collections import defaultdict
 
 class Diffusion(models.Model):
     RESULT_BASE_PATH = './diffusion/outputs/csv/'
     EXECUTABLE_JAR_FILE_PATH = './diffusion/diffusion_files/diffusion_version3.jar'
     BASE_INTEGRATION_FILES_PATH = './diffusion/diffusion_files/'
+    DEFAULT_LIMIT_LARGEST_SHOCKS = 5
 
     SUCCESS_CMD_OUTPUT = "Time is"
 
@@ -115,3 +118,87 @@ class Diffusion(models.Model):
             thread = threading.Thread(target=run_diffusion, args=(self.id,))
             thread.start()
 
+
+    def process_logs(self, limit_largest_shocks=DEFAULT_LIMIT_LARGEST_SHOCKS, country_groups=None, countries=None, grouped_countries=None):
+        if self.status != "finished":
+            return False, "Diffusion must be finished to retrieve iteration details."
+
+        log_file_path = os.path.join(self.output_folder_path, "log.csv")
+
+        if not os.path.exists(log_file_path):
+            return False, "Log file not found."
+
+        # Determine final country filter set
+        country_filter_set = None
+        if countries or grouped_countries:
+            country_filter_set = set(countries or []) | set(grouped_countries or [])
+
+        success, result = Diffusion.parse_log_to_graphs_fast(
+            log_file_path,
+            shock_threshold=limit_largest_shocks,
+            country_groups=country_groups or [],
+            country_filter_set=country_filter_set
+        )
+
+        return success, result
+
+
+    @staticmethod
+    def parse_log_to_graphs_fast(log_file_path, shock_threshold, country_groups, country_filter_set):
+        if not os.path.exists(log_file_path):
+            return False, "Log file not found."
+
+        try:
+            df = pd.read_csv(log_file_path)
+            df = df.dropna(subset=['Source', 'Destination', 'Shock', 'Iteration'])
+
+            df['Shock'] = pd.to_numeric(df['Shock'], errors='coerce')
+            df['Iteration'] = pd.to_numeric(df['Iteration'], errors='coerce')
+            df = df.dropna(subset=['Shock', 'Iteration'])
+
+            df = df[df['Shock'].abs() > shock_threshold]
+
+            group_map = {}
+            if country_groups:
+                for group in country_groups:
+                    if len(group) < 2:
+                        continue
+                    group_name = "_".join(sorted(group))
+                    for country in group:
+                        group_map[country] = group_name
+
+            def map_country(name):
+                return group_map.get(name, name)
+
+            df['Source'] = df['Source'].map(map_country)
+            df['Destination'] = df['Destination'].map(map_country)
+
+            df = df.groupby(['Iteration', 'Source', 'Destination'], as_index=False)['Shock'].sum()
+
+            graphs = []
+
+            for iteration, group in df.groupby('Iteration'):
+                edges = []
+                nodes = set(group['Source']).union(set(group['Destination']))
+
+                if country_filter_set is not None:
+                    nodes = {n for n in nodes if n in country_filter_set}
+                    group = group[(group['Source'].isin(nodes)) & (group['Destination'].isin(nodes))]
+
+                for _, row in group.iterrows():
+                    edges.append({
+                        'source': row['Source'],
+                        'target': row['Destination'],
+                        'weight': row['Shock']
+                    })
+
+                graphs.append({
+                    'iteration': int(iteration),
+                    'nodes': [{'id': node} for node in nodes],
+                    'edges': edges
+                })
+
+            return True, graphs
+
+        except Exception as e:
+            return False, f"Error processing log file: {e}"

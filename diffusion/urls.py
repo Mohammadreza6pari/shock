@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import DiffusionSetupView, DiffusionDownloadView
+from .views import DiffusionSetupView, DiffusionDownloadView, DiffusionIterationDetailView
 
 urlpatterns = [
     path(
@@ -16,5 +16,10 @@ urlpatterns = [
         'download/<int:diffusion_id>/', 
         DiffusionDownloadView.as_view(), 
         name='diffusion-download'
+    ),
+    path(
+        '<int:diffusion_id>/iterations/', 
+        DiffusionIterationDetailView.as_view(), 
+        name='diffusion-iteration-detail'
     ),
 ]
