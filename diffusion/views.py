@@ -7,6 +7,7 @@ import shutil
 from django.http import HttpResponse
 from .utils import create_zip_file_of_folder
 import os
+import csv
 
 class DiffusionSetupView(views.APIView):
     serializer_class = serializers.DiffusionSerializer
@@ -102,3 +103,20 @@ class DiffusionIterationDetailView(views.APIView):
                 "limit_largest_shocks": limit_largest_shocks,
             }
         }, status=status.HTTP_200_OK)
+
+    def get(self, request, diffusion_id):
+        sort_by = request.query_params.get('sort_by')
+        sort_order = request.query_params.get('sort_order', 'asc')
+
+        if not sort_by:
+            return Response({"error": "Missing 'sort_by' query parameter."}, status=status.HTTP_400_BAD_REQUEST)
+
+        diffusion = get_object_or_404(models.Diffusion, id=diffusion_id)
+
+        is_ok, result = diffusion.get_sorted_log_data(sort_by=sort_by, sort_order=sort_order)
+
+        if not is_ok:
+            return Response({"error": result}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"sorted_log": result}, status=status.HTTP_200_OK)
+

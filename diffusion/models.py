@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
-import os 
+import os
+import csv
 import threading
 from dataset.models import Dataset
 import pandas as pd
@@ -142,7 +143,43 @@ class Diffusion(models.Model):
 
         return success, result
 
+    def get_sorted_log_data(self, sort_by, sort_order='asc'):
+        if self.status != "finished":
+            return False, "Diffusion must be finished to access log."
 
+        log_file_path = os.path.join(self.output_folder_path, "log.csv")
+        if not os.path.exists(log_file_path):
+            return False, "Log file not found."
+
+        with open(log_file_path, newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            rows = list(reader)
+
+        if not rows:
+            return False, "Log file is empty."
+
+        if sort_by not in rows[0]:
+            return False, f"Column '{sort_by}' not found in log."
+
+        try:
+            sorted_rows = sorted(
+                rows,
+                key=lambda x: self._safe_cast(x.get(sort_by)),
+                reverse=(sort_order == 'desc')
+            )
+        except Exception as e:
+            return False, f"Sorting failed: {str(e)}"
+
+        return True, sorted_rows
+    
+    def _safe_cast(self, value):
+        try:
+            if isinstance(value, str) and '.' in value:
+                return float(value)
+            return int(value)
+        except (ValueError, TypeError):
+            return value
+    
     @staticmethod
     def parse_log_to_graphs_fast(log_file_path, shock_threshold, country_groups, country_filter_set):
         if not os.path.exists(log_file_path):
