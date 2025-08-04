@@ -6,6 +6,7 @@ import threading
 from dataset.models import Dataset
 import pandas as pd
 from collections import defaultdict
+import ast
 
 class Diffusion(models.Model):
     RESULT_BASE_PATH = './diffusion/outputs/csv/'
@@ -14,6 +15,21 @@ class Diffusion(models.Model):
     DEFAULT_LIMIT_LARGEST_SHOCKS = 5
 
     SUCCESS_CMD_OUTPUT = "Time is"
+
+    COLUMN_NAME_MAP = {
+    "Row": "id",
+    "Parent Id": "parentId",
+    "Shock Id": "shockId",
+    "Origin": "origin",
+    "Value": "value",
+    "In/Out": "inOut",
+    "Source": "source",
+    "Destination": "destination",
+    "type": "shockType",
+    "Shock": "shock",
+    "Ratio": "ratio",
+    "Comment": "comment",
+    }
 
     STATUS_CHOICES = (
         ('pending', 'Pending'),
@@ -170,7 +186,35 @@ class Diffusion(models.Model):
         except Exception as e:
             return False, f"Sorting failed: {str(e)}"
 
-        return True, sorted_rows
+        # Rename columns and convert Parent ID from string to list
+        remapped_rows = []
+        for row in sorted_rows:
+            new_row = {}
+            for k, v in row.items():
+                new_key = self.map_column_name(k)
+                if new_key == "parentId":
+                    try:
+                        new_row[new_key] = ast.literal_eval(v)
+                    except Exception:
+                        new_row[new_key] = v
+                else:
+                    new_row[new_key] = v
+            remapped_rows.append(new_row)
+
+        grouped = defaultdict(list)
+        for row in remapped_rows:
+            iteration = row.get("Iteration", "Unknown")
+            grouped[iteration].append(row)
+
+        result = [
+            {"iteration": int(key) if str(key).isdigit() else key, "rows": value}
+            for key, value in sorted(grouped.items(), key=lambda item: int(item[0]) if str(item[0]).isdigit() else item[0])
+        ]
+
+        return True, result
+
+    def map_column_name(self, column):
+        return self.COLUMN_NAME_MAP.get(column, column)
     
     def _safe_cast(self, value):
         try:

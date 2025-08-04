@@ -105,7 +105,7 @@ class DiffusionIterationDetailView(views.APIView):
         }, status=status.HTTP_200_OK)
 
     def get(self, request, diffusion_id):
-        sort_by = request.query_params.get('sort_by')
+        sort_by = request.query_params.get('sort_by', 'Row')
         sort_order = request.query_params.get('sort_order', 'asc')
 
         if not sort_by:
@@ -118,5 +118,5 @@ class DiffusionIterationDetailView(views.APIView):
         if not is_ok:
             return Response({"error": result}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({"sorted_log": result}, status=status.HTTP_200_OK)
+        return Response(result, status=status.HTTP_200_OK)
 
