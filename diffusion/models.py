@@ -192,13 +192,14 @@ class Diffusion(models.Model):
             new_row = {}
             for k, v in row.items():
                 new_key = self.map_column_name(k)
+                casted_value = self._safe_cast(v)
                 if new_key == "parentId":
                     try:
                         new_row[new_key] = ast.literal_eval(v)
                     except Exception:
                         new_row[new_key] = v
                 else:
-                    new_row[new_key] = v
+                    new_row[new_key] = casted_value
             remapped_rows.append(new_row)
 
         grouped = defaultdict(list)
@@ -212,6 +213,18 @@ class Diffusion(models.Model):
         ]
 
         return True, result
+    
+    def _safe_cast(self, value):
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return value
+        try:
+            if '.' in str(value):
+                return float(value)
+            return int(value)
+        except (ValueError, TypeError):
+            return value
 
     def map_column_name(self, column):
         return self.COLUMN_NAME_MAP.get(column, column)
