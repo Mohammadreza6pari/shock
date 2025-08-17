@@ -186,13 +186,13 @@ class Diffusion(models.Model):
         except Exception as e:
             return False, f"Sorting failed: {str(e)}"
 
-        # Rename columns and convert Parent ID from string to list
-        remapped_rows = []
+        result = []
         for row in sorted_rows:
             new_row = {}
             for k, v in row.items():
                 new_key = self.map_column_name(k)
                 casted_value = self._safe_cast(v)
+
                 if new_key == "parentId":
                     try:
                         new_row[new_key] = ast.literal_eval(v)
@@ -200,20 +200,15 @@ class Diffusion(models.Model):
                         new_row[new_key] = v
                 else:
                     new_row[new_key] = casted_value
-            remapped_rows.append(new_row)
 
-        grouped = defaultdict(list)
-        for row in remapped_rows:
-            iteration = row.get("Iteration", "Unknown")
-            grouped[iteration].append(row)
+            # Add iteration explicitly
+            iteration = new_row.get("Iteration", "Unknown")
+            new_row["iteration"] = int(iteration) if str(iteration).isdigit() else iteration
 
-        result = [
-            {"iteration": int(key) if str(key).isdigit() else key, "rows": value}
-            for key, value in sorted(grouped.items(), key=lambda item: int(item[0]) if str(item[0]).isdigit() else item[0])
-        ]
+            result.append(new_row)
 
         return True, result
-    
+
     def _safe_cast(self, value):
         if value is None:
             return None
@@ -229,13 +224,6 @@ class Diffusion(models.Model):
     def map_column_name(self, column):
         return self.COLUMN_NAME_MAP.get(column, column)
     
-    def _safe_cast(self, value):
-        try:
-            if isinstance(value, str) and '.' in value:
-                return float(value)
-            return int(value)
-        except (ValueError, TypeError):
-            return value
     
     @staticmethod
     def parse_log_to_graphs_fast(log_file_path, shock_threshold, country_groups, country_filter_set):
