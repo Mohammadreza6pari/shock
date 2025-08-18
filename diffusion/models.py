@@ -1,15 +1,35 @@
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
-import os 
+import os
+import csv
 import threading
-
+from dataset.models import Dataset
+import pandas as pd
+from collections import defaultdict
+import ast
 
 class Diffusion(models.Model):
     RESULT_BASE_PATH = './diffusion/outputs/csv/'
     EXECUTABLE_JAR_FILE_PATH = './diffusion/diffusion_files/diffusion_version3.jar'
     BASE_INTEGRATION_FILES_PATH = './diffusion/diffusion_files/'
+    DEFAULT_LIMIT_LARGEST_SHOCKS = 5
 
     SUCCESS_CMD_OUTPUT = "Time is"
+
+    COLUMN_NAME_MAP = {
+    "Row": "id",
+    "Parent Id": "parentId",
+    "Shock Id": "shockId",
+    "Origin": "origin",
+    "Value": "value",
+    "In/Out": "inOut",
+    "Source": "source",
+    "Destination": "destination",
+    "type": "shockType",
+    "Shock": "shock",
+    "Ratio": "ratio",
+    "Comment": "comment",
+    }
 
     STATUS_CHOICES = (
         ('pending', 'Pending'),
@@ -27,7 +47,7 @@ class Diffusion(models.Model):
     logs = models.JSONField(default=dict, blank=True)
     
     number_of_iterations = models.PositiveIntegerField() 
-    integration = models.CharField(max_length=36) #TODO: That's better it maps to integration model
+    integration = models.ForeignKey(Dataset, on_delete=models.CASCADE)
     sources = ArrayField(
         models.CharField(max_length=12, blank=True, null=True),
     )
@@ -76,7 +96,7 @@ class Diffusion(models.Model):
 
     @property
     def output_integration_folder_path(self):
-        return os.path.join(Diffusion.BASE_INTEGRATION_FILES_PATH, f"{self.integration}.csv")
+        return self.integration.file_path
             
     def create_output_folder(self):
         if self.output_folder_path_exists:
@@ -115,3 +135,155 @@ class Diffusion(models.Model):
             thread = threading.Thread(target=run_diffusion, args=(self.id,))
             thread.start()
 
+
+    def process_logs(self, limit_largest_shocks=DEFAULT_LIMIT_LARGEST_SHOCKS, country_groups=None, countries=None, grouped_countries=None):
+        if self.status != "finished":
+            return False, "Diffusion must be finished to retrieve iteration details."
+
+        log_file_path = os.path.join(self.output_folder_path, "log.csv")
+
+        if not os.path.exists(log_file_path):
+            return False, "Log file not found."
+
+        # Determine final country filter set
+        country_filter_set = None
+        if countries or grouped_countries:
+            country_filter_set = set(countries or []) | set(grouped_countries or [])
+
+        success, result = Diffusion.parse_log_to_graphs_fast(
+            log_file_path,
+            shock_threshold=limit_largest_shocks,
+            country_groups=country_groups or [],
+            country_filter_set=country_filter_set
+        )
+
+        return success, result
+
+    def get_sorted_log_data(self, sort_by, sort_order='asc'):
+        if self.status != "finished":
+            return False, "Diffusion must be finished to access log."
+
+        log_file_path = os.path.join(self.output_folder_path, "log.csv")
+        if not os.path.exists(log_file_path):
+            return False, "Log file not found."
+
+        with open(log_file_path, newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            rows = list(reader)
+
+        if not rows:
+            return False, "Log file is empty."
+
+        if sort_by not in rows[0]:
+            return False, f"Column '{sort_by}' not found in log."
+
+        try:
+            sorted_rows = sorted(
+                rows,
+                key=lambda x: self._safe_cast(x.get(sort_by)),
+                reverse=(sort_order == 'desc')
+            )
+        except Exception as e:
+            return False, f"Sorting failed: {str(e)}"
+
+        result = []
+        for row in sorted_rows:
+            new_row = {}
+            for k, v in row.items():
+                new_key = self.map_column_name(k)
+                casted_value = self._safe_cast(v)
+
+                if new_key == "parentId":
+                    try:
+                        new_row[new_key] = ast.literal_eval(v)
+                    except Exception:
+                        new_row[new_key] = v
+                else:
+                    new_row[new_key] = casted_value
+
+            # Add iteration explicitly
+            iteration = new_row.get("Iteration", "Unknown")
+            new_row["iteration"] = int(iteration) if str(iteration).isdigit() else iteration
+
+            result.append(new_row)
+
+        return True, result
+
+    def _safe_cast(self, value):
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return value
+        try:
+            if '.' in str(value):
+                return float(value)
+            return int(value)
+        except (ValueError, TypeError):
+            return value
+
+    def map_column_name(self, column):
+        return self.COLUMN_NAME_MAP.get(column, column)
+    
+    
+    @staticmethod
+    def parse_log_to_graphs_fast(log_file_path, shock_threshold, country_groups, country_filter_set):
+        if not os.path.exists(log_file_path):
+            return False, "Log file not found."
+
+        try:
+            df = pd.read_csv(log_file_path)
+            df = df.dropna(subset=['Source', 'Destination', 'Shock', 'Iteration'])
+
+            df['Shock'] = pd.to_numeric(df['Shock'], errors='coerce')
+            df['Iteration'] = pd.to_numeric(df['Iteration'], errors='coerce')
+            df = df.dropna(subset=['Shock', 'Iteration'])
+
+            df = df[df['Shock'].abs() > shock_threshold]
+
+            group_map = {}
+            if country_groups:
+                for group in country_groups:
+                    if isinstance(group, dict):
+                        group_name = group['name']
+                        members = group['members']
+                    else:
+                        members = group
+                        group_name = "_".join(sorted(members))  # fallback
+                    for country in members:
+                        group_map[country] = group_name
+
+            def map_country(name):
+                return group_map.get(name, name)
+
+            df['Source'] = df['Source'].map(map_country)
+            df['Destination'] = df['Destination'].map(map_country)
+
+            df = df.groupby(['Iteration', 'Source', 'Destination'], as_index=False)['Shock'].sum()
+
+            graphs = []
+
+            for iteration, group in df.groupby('Iteration'):
+                edges = []
+                nodes = set(group['Source']).union(set(group['Destination']))
+
+                if country_filter_set is not None:
+                    nodes = {n for n in nodes if n in country_filter_set}
+                    group = group[(group['Source'].isin(nodes)) & (group['Destination'].isin(nodes))]
+
+                for _, row in group.iterrows():
+                    edges.append({
+                        'source': row['Source'],
+                        'target': row['Destination'],
+                        'weight': row['Shock']
+                    })
+
+                graphs.append({
+                    'iteration': int(iteration),
+                    'nodes': [{'id': node} for node in nodes],
+                    'edges': edges
+                })
+
+            return True, graphs
+
+        except Exception as e:
+            return False, f"Error processing log file: {e}"
