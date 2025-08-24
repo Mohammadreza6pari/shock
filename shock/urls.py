@@ -5,6 +5,7 @@ from django.conf import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path("api/auth/", include("user.urls")),
     path('api/diffusions/', include('diffusion.urls')),
     path('api/datasets/', include('dataset.urls')),
 ]
