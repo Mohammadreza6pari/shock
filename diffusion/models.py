@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
+from django.conf import settings
 import os
 import csv
 import threading
@@ -43,6 +44,7 @@ class Diffusion(models.Model):
     name = models.CharField(max_length=72, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="diffusions")
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='pending')
     logs = models.JSONField(default=dict, blank=True)
     
