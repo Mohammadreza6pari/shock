@@ -2,6 +2,8 @@ from rest_framework import views
 from . import models, serializers
 from rest_framework.response import Response
 from rest_framework.generics import get_object_or_404
+from rest_framework.permissions import IsAuthenticated
+from user.permissions import IsApprovedUser
 from rest_framework import views, status
 import shutil
 from django.http import HttpResponse
@@ -11,7 +13,7 @@ import csv
 
 class DiffusionSetupView(views.APIView):
     serializer_class = serializers.DiffusionSerializer
-
+    permission_classes = [IsAuthenticated, IsApprovedUser]
 
     def post(self, request):
         """Create a new diffusion record."""
@@ -50,6 +52,8 @@ class DiffusionSetupView(views.APIView):
     
 
 class DiffusionDownloadView(views.APIView):
+    permission_classes = [IsAuthenticated, IsApprovedUser]
+
     def get(self, request, diffusion_id):
         """Generate a ZIP file of diffusion output and return it as a download"""
         diffusion = get_object_or_404(models.Diffusion, id=diffusion_id)
@@ -67,6 +71,8 @@ class DiffusionDownloadView(views.APIView):
 
 
 class DiffusionIterationDetailView(views.APIView):
+    permission_classes = [IsAuthenticated, IsApprovedUser]
+
     def post(self, request, diffusion_id):
         data = request.data
 
