@@ -198,6 +198,8 @@ class Diffusion(models.Model):
                         new_row[new_key] = ast.literal_eval(v)
                     except Exception:
                         new_row[new_key] = v
+                elif new_key in ["value", "shock"] and isinstance(casted_value, (int, float)):
+                    new_row[new_key] = round(casted_value, 2)
                 else:
                     new_row[new_key] = casted_value
 
