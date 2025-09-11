@@ -12,6 +12,14 @@ class DatasetListView(APIView):
         serializer = DatasetSerializer(datasets, many=True)
         return Response(serializer.data)
 
+class DatasetMetaView(APIView):
+    def get(self, request, identifier):
+        dataset = Dataset.objects.filter(id=identifier).first() or Dataset.objects.filter(name=identifier).first()
+        if not dataset:
+            return Response({'error': 'Dataset not found'}, status=404)
+
+        meta = dataset.extract_countries_and_industries()
+        return Response(meta)
 
 class DatasetDownloadView(APIView):
     def get(self, request, identifier):
