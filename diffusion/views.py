@@ -26,8 +26,8 @@ class DiffusionSetupView(views.APIView):
             diffusion = get_object_or_404(models.Diffusion, id=diffusion_id)
             serializer = self.serializer_class(diffusion)
             return Response(serializer.data, status=status.HTTP_200_OK)
-        
-        diffusions = models.Diffusion.objects.exclude(status="deleted")
+
+        diffusions = models.Diffusion.objects.exclude(status="deleted").order_by('-id')
         serializer = self.serializer_class(diffusions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
