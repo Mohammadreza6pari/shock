@@ -1,7 +1,15 @@
 from rest_framework import serializers
+
+from dataset.models import Dataset
+
 from .models import Diffusion
 
+
 class DiffusionSerializer(serializers.ModelSerializer):
+    integration = serializers.SlugRelatedField(
+        slug_field="name", queryset=Dataset.objects.all()
+    )
+
     class Meta:
         model = Diffusion
         fields = [
@@ -20,5 +28,6 @@ class DiffusionSerializer(serializers.ModelSerializer):
             "threshold_two",
             "threshold_three",
             "logs",
+            "user",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "status", "logs"]
+        read_only_fields = ["id", "created_at", "updated_at", "status", "logs", "user"]
