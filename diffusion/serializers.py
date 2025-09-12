@@ -25,5 +25,6 @@ class DiffusionSerializer(serializers.ModelSerializer):
             "threshold_two",
             "threshold_three",
             "logs",
+            "user",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "status", "logs"]
+        read_only_fields = ["id", "created_at", "updated_at", "status", "logs", "user"]
