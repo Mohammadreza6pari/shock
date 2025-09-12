@@ -10,28 +10,79 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('dataset', '0002_dataset_created_at'),
+        ("dataset", "0002_dataset_created_at"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Diffusion',
+            name="Diffusion",
             fields=[
-                ('id', models.AutoField(primary_key=True, serialize=False)),
-                ('name', models.CharField(blank=True, max_length=72, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('status', models.CharField(choices=[('pending', 'Pending'), ('running', 'Running'), ('finished', 'Finished'), ('failed', 'Failed'), ('deleted', 'Deleted')], default='pending', max_length=12)),
-                ('logs', models.JSONField(blank=True, default=dict)),
-                ('number_of_iterations', models.PositiveIntegerField()),
-                ('sources', django.contrib.postgres.fields.ArrayField(base_field=models.CharField(blank=True, max_length=12, null=True), size=None)),
-                ('destinations', django.contrib.postgres.fields.ArrayField(base_field=models.CharField(blank=True, max_length=12, null=True), size=None)),
-                ('shock_types', django.contrib.postgres.fields.ArrayField(base_field=models.CharField(blank=True, max_length=12, null=True), size=None)),
-                ('shock_amounts', django.contrib.postgres.fields.ArrayField(base_field=models.CharField(blank=True, max_length=12, null=True), size=None)),
-                ('threshold_one', models.FloatField()),
-                ('threshold_two', models.FloatField()),
-                ('threshold_three', models.FloatField()),
-                ('integration', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='dataset.dataset')),
+                ("id", models.AutoField(primary_key=True, serialize=False)),
+                ("name", models.CharField(blank=True, max_length=72, null=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("pending", "Pending"),
+                            ("running", "Running"),
+                            ("finished", "Finished"),
+                            ("failed", "Failed"),
+                            ("deleted", "Deleted"),
+                        ],
+                        default="pending",
+                        max_length=12,
+                    ),
+                ),
+                ("logs", models.JSONField(blank=True, default=dict)),
+                ("number_of_iterations", models.PositiveIntegerField()),
+                (
+                    "sources",
+                    django.contrib.postgres.fields.ArrayField(
+                        base_field=models.CharField(
+                            blank=True, max_length=12, null=True
+                        ),
+                        size=None,
+                    ),
+                ),
+                (
+                    "destinations",
+                    django.contrib.postgres.fields.ArrayField(
+                        base_field=models.CharField(
+                            blank=True, max_length=12, null=True
+                        ),
+                        size=None,
+                    ),
+                ),
+                (
+                    "shock_types",
+                    django.contrib.postgres.fields.ArrayField(
+                        base_field=models.CharField(
+                            blank=True, max_length=12, null=True
+                        ),
+                        size=None,
+                    ),
+                ),
+                (
+                    "shock_amounts",
+                    django.contrib.postgres.fields.ArrayField(
+                        base_field=models.CharField(
+                            blank=True, max_length=12, null=True
+                        ),
+                        size=None,
+                    ),
+                ),
+                ("threshold_one", models.FloatField()),
+                ("threshold_two", models.FloatField()),
+                ("threshold_three", models.FloatField()),
+                (
+                    "integration",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="dataset.dataset",
+                    ),
+                ),
             ],
         ),
     ]
