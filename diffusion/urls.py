@@ -1,25 +1,19 @@
 from django.urls import path
-from .views import DiffusionSetupView, DiffusionDownloadView, DiffusionIterationDetailView
+
+from .views import (DiffusionDownloadView, DiffusionIterationDetailView,
+                    DiffusionSetupView)
 
 urlpatterns = [
+    path("", DiffusionSetupView.as_view(), name="diffusion-list-create"),
+    path("<int:diffusion_id>/", DiffusionSetupView.as_view(), name="diffusion-detail"),
     path(
-        '',
-        DiffusionSetupView.as_view(), 
-        name='diffusion-list-create'
+        "download/<int:diffusion_id>/",
+        DiffusionDownloadView.as_view(),
+        name="diffusion-download",
     ),
     path(
-        '<int:diffusion_id>/', 
-        DiffusionSetupView.as_view(), 
-        name='diffusion-detail'
-    ),
-    path(
-        'download/<int:diffusion_id>/', 
-        DiffusionDownloadView.as_view(), 
-        name='diffusion-download'
-    ),
-    path(
-        '<int:diffusion_id>/iterations/', 
-        DiffusionIterationDetailView.as_view(), 
-        name='diffusion-iteration-detail'
+        "<int:diffusion_id>/iterations/",
+        DiffusionIterationDetailView.as_view(),
+        name="diffusion-iteration-detail",
     ),
 ]
