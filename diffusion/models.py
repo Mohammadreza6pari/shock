@@ -154,7 +154,6 @@ class Diffusion(models.Model):
     def process_logs(
         self,
         limit_largest_shocks=DEFAULT_LIMIT_LARGEST_SHOCKS,
-        country_groups=None,
         countries=None,
         grouped_countries=None,
     ):
@@ -174,7 +173,6 @@ class Diffusion(models.Model):
         success, result = Diffusion.parse_log_to_graphs_fast(
             log_file_path,
             shock_threshold=limit_largest_shocks,
-            country_groups=country_groups or [],
             country_filter_set=country_filter_set,
         )
 
@@ -253,7 +251,7 @@ class Diffusion(models.Model):
 
     @staticmethod
     def parse_log_to_graphs_fast(
-        log_file_path, shock_threshold, country_groups, country_filter_set
+        log_file_path, shock_threshold, country_filter_set
     ):
         if not os.path.exists(log_file_path):
             return False, "Log file not found."
@@ -268,27 +266,6 @@ class Diffusion(models.Model):
 
             df = df[df["Shock"].abs() > shock_threshold]
 
-            group_map = {}
-            if country_groups:
-                for group in country_groups:
-                    if isinstance(group, dict):
-                        group_name = group["name"]
-                        members = group["members"]
-                    else:
-                        members = group
-                        group_name = "_".join(sorted(members))  # fallback
-                    for country in members:
-                        group_map[country] = group_name
-
-            def map_country(name):
-                return group_map.get(name, name)
-
-            df["Source"] = df["Source"].map(map_country)
-            df["Destination"] = df["Destination"].map(map_country)
-
-            df = df.groupby(["Iteration", "Source", "Destination"], as_index=False)[
-                "Shock"
-            ].sum()
 
             graphs = []
 

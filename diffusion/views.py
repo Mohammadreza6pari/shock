@@ -91,8 +91,6 @@ class DiffusionIterationDetailView(views.APIView):
     def post(self, request, diffusion_id):
         data = request.data
 
-        country_groups = data.get("country_groups", [])
-        group_all_industries = data.get("group_all_industries", False)
         filters = data.get("filters", {})
 
         industries = filters.get("industries", [])
@@ -104,7 +102,6 @@ class DiffusionIterationDetailView(views.APIView):
 
         is_ok, result = diffusion.process_logs(
             limit_largest_shocks=limit_largest_shocks,
-            country_groups=country_groups,
             countries=countries,
             grouped_countries=grouped_countries,
         )
@@ -116,8 +113,6 @@ class DiffusionIterationDetailView(views.APIView):
             {
                 "diffusion_id": diffusion_id,
                 "graphs": result,
-                "country_groups": country_groups,
-                "group_all_industries": group_all_industries,
                 "filters": {
                     "industries": industries,
                     "countries": countries,
