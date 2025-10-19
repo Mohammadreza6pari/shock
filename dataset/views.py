@@ -18,7 +18,11 @@ from .models import Dataset
 from .serializers import DatasetSerializer
 from diffusion.models import Diffusion
 from django.conf import settings
-
+import shutil
+from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.utils.text import slugify
 
 class DatasetListView(APIView):
     permission_classes = [IsAuthenticated, IsApprovedUser]
@@ -140,6 +144,7 @@ class DatasetGroupingView(APIView):
         serializer = DatasetSerializer(new_dataset)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+
 class CreateDatasetFromDiffusionView(APIView):
     permission_classes = [IsAuthenticated, IsApprovedUser]
 
@@ -157,20 +162,27 @@ class CreateDatasetFromDiffusionView(APIView):
                 {"error": f"io_table.csv not found at {io_csv_path}"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-
-        dataset_name = f"diffusion_{diffusion.name}_{diffusion.id}"
-
+        
+        dataset_name = f"diffusion_{slugify(diffusion.name)}_{diffusion.id}"
         if Dataset.objects.filter(name=dataset_name, user=request.user).exists():
             return Response(
                 {"error": "Dataset already exists for this diffusion."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         
-        relative_path = os.path.relpath(io_csv_path, settings.MEDIA_ROOT)
+        target_dir = os.path.join(settings.MEDIA_ROOT, "datasets")
+        os.makedirs(target_dir, exist_ok=True)
+
+        new_filename = f"{dataset_name}.csv"
+        new_file_path = os.path.join(target_dir, new_filename)
+
+        shutil.copy2(io_csv_path, new_file_path)
+
+        relative_path = os.path.relpath(new_file_path, settings.MEDIA_ROOT)
 
         dataset = Dataset.objects.create(
             name=dataset_name,
-            file=relative_path,
+            file=relative_path,  
             user=request.user,
         )
 
