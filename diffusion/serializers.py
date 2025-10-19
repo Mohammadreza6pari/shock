@@ -7,7 +7,7 @@ from .models import Diffusion
 
 class DiffusionSerializer(serializers.ModelSerializer):
     integration = serializers.SlugRelatedField(
-        slug_field="name", queryset=Dataset.objects.all()
+        slug_field="id", queryset=Dataset.objects.all()
     )
 
     class Meta:
