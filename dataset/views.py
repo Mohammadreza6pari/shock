@@ -85,10 +85,9 @@ class DatasetGroupingView(APIView):
             return Response({"error": "dataset_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         dataset = get_object_or_404(Dataset, id=dataset_id)
-
-        with dataset.file.open("rb") as f:
-            text_file = io.TextIOWrapper(f, encoding="utf-8")
-            df = pd.read_csv(text_file)
+        file_path = dataset.file.path
+        with open(file_path, "r", encoding="utf-8") as f:
+            df = pd.read_csv(f)
 
         if country_groups:
             group_map = {}
