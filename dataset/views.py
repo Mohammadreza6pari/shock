@@ -5,9 +5,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from django.core.files import File
 from django.db import models
-
+import io
+import pandas as pd
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from user.permissions import IsApprovedUser
 from user.permissions import IsApprovedUser
 
 
@@ -26,6 +29,18 @@ class DatasetListView(APIView):
         serializer = DatasetSerializer(datasets, many=True)
         return Response(serializer.data)
 
+class DatasetDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsApprovedUser]
+
+    def get(self, request, pk):
+        user = request.user
+        dataset = get_object_or_404(
+            Dataset,
+            models.Q(pk=pk),
+            models.Q(user=user) | models.Q(user__isnull=True)
+        )
+        serializer = DatasetSerializer(dataset)
+        return Response(serializer.data)
 
 class DatasetMetaView(APIView):
     permission_classes = [IsAuthenticated, IsApprovedUser]
@@ -55,14 +70,6 @@ class DatasetDownloadView(APIView):
         return FileResponse(
             dataset.file.open("rb"), as_attachment=True, filename=dataset.name
         )
-
-
-import csv
-import io
-import pandas as pd
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-from user.permissions import IsApprovedUser
 
 
 class DatasetGroupingView(APIView):

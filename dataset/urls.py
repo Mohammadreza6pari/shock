@@ -1,9 +1,10 @@
 from django.urls import path
 
-from .views import DatasetDownloadView, DatasetGroupingView, DatasetListView, DatasetMetaView, CreateDatasetFromDiffusionView
+from .views import DatasetDownloadView, DatasetGroupingView, DatasetListView, DatasetMetaView, CreateDatasetFromDiffusionView, DatasetDetailView
 
 urlpatterns = [
     path("", DatasetListView.as_view(), name="dataset-list"),
+    path("<int:pk>/", DatasetDetailView.as_view(), name="dataset-detail"),
     path(
         "download/<identifier>/", DatasetDownloadView.as_view(), name="dataset-download"
     ),
