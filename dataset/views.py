@@ -86,12 +86,10 @@ class DatasetGroupingView(APIView):
 
         dataset = get_object_or_404(Dataset, id=dataset_id)
 
-        # Load the dataset CSV
         with dataset.file.open("rb") as f:
             text_file = io.TextIOWrapper(f, encoding="utf-8")
             df = pd.read_csv(text_file)
 
-        # Apply country grouping
         if country_groups:
             group_map = {}
             for group in country_groups:
@@ -100,11 +98,10 @@ class DatasetGroupingView(APIView):
                     members = group["members"]
                 else:
                     members = group
-                    group_name = "_".join(sorted(members))  # fallback
+                    group_name = "_".join(sorted(members))
                 for country in members:
                     group_map[country] = group_name
 
-            # Update column names for countries
             new_columns = {}
             for col in df.columns:
                 if "_" in col:
@@ -115,14 +112,10 @@ class DatasetGroupingView(APIView):
                     new_columns[col] = col
             df.rename(columns=new_columns, inplace=True)
 
-            # Group columns by summing
             grouped_df = df.groupby(level=0, axis=1).sum()
             df = grouped_df
 
-        # Apply industry grouping if group_all_industries is True
         if group_all_industries:
-            # Sum all columns except the first one (assuming first is index or something)
-            # Actually, since columns are country_industry, we need to group by country
             industry_groups = {}
             for col in df.columns:
                 if "_" in col:
@@ -136,14 +129,12 @@ class DatasetGroupingView(APIView):
                 new_df[f"{country}_ALL"] = df[cols].sum(axis=1)
             df = new_df
 
-        # Create a new dataset with the grouped data
         output = io.StringIO()
         df.to_csv(output, index=False)
         output.seek(0)
 
-        # Create a new Dataset instance
         new_dataset_name = f"{dataset.name}_grouped"
-        new_dataset = Dataset(name=new_dataset_name)
+        new_dataset = Dataset(name=new_dataset_name, user=request.user)
         new_dataset.file.save(f"{new_dataset_name}.csv", io.BytesIO(output.getvalue().encode('utf-8')))
         new_dataset.save()
 
