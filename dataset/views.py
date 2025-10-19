@@ -5,9 +5,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from django.core.files import File
 from django.db import models
-
+import io
+import pandas as pd
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from user.permissions import IsApprovedUser
 from user.permissions import IsApprovedUser
 
 
@@ -26,6 +29,18 @@ class DatasetListView(APIView):
         serializer = DatasetSerializer(datasets, many=True)
         return Response(serializer.data)
 
+class DatasetDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsApprovedUser]
+
+    def get(self, request, pk):
+        user = request.user
+        dataset = get_object_or_404(
+            Dataset,
+            models.Q(pk=pk),
+            models.Q(user=user) | models.Q(user__isnull=True)
+        )
+        serializer = DatasetSerializer(dataset)
+        return Response(serializer.data)
 
 class DatasetMetaView(APIView):
     permission_classes = [IsAuthenticated, IsApprovedUser]
@@ -55,6 +70,76 @@ class DatasetDownloadView(APIView):
         return FileResponse(
             dataset.file.open("rb"), as_attachment=True, filename=dataset.name
         )
+
+
+class DatasetGroupingView(APIView):
+    permission_classes = [IsAuthenticated, IsApprovedUser]
+
+    def post(self, request):
+        data = request.data
+        dataset_id = data.get("dataset_id")
+        country_groups = data.get("country_groups", [])
+        group_all_industries = data.get("group_all_industries", False)
+
+        if not dataset_id:
+            return Response({"error": "dataset_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        dataset = get_object_or_404(Dataset, id=dataset_id)
+
+        with dataset.file.open("rb") as f:
+            text_file = io.TextIOWrapper(f, encoding="utf-8")
+            df = pd.read_csv(text_file)
+
+        if country_groups:
+            group_map = {}
+            for group in country_groups:
+                if isinstance(group, dict):
+                    group_name = group["name"]
+                    members = group["members"]
+                else:
+                    members = group
+                    group_name = "_".join(sorted(members))
+                for country in members:
+                    group_map[country] = group_name
+
+            new_columns = {}
+            for col in df.columns:
+                if "_" in col:
+                    country, industry = col.split("_", 1)
+                    new_country = group_map.get(country, country)
+                    new_columns[col] = f"{new_country}_{industry}"
+                else:
+                    new_columns[col] = col
+            df.rename(columns=new_columns, inplace=True)
+
+            grouped_df = df.groupby(level=0, axis=1).sum()
+            df = grouped_df
+
+        if group_all_industries:
+            industry_groups = {}
+            for col in df.columns:
+                if "_" in col:
+                    country, industry = col.split("_", 1)
+                    if country not in industry_groups:
+                        industry_groups[country] = []
+                    industry_groups[country].append(col)
+
+            new_df = pd.DataFrame()
+            for country, cols in industry_groups.items():
+                new_df[f"{country}_ALL"] = df[cols].sum(axis=1)
+            df = new_df
+
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        output.seek(0)
+
+        new_dataset_name = f"{dataset.name}_grouped"
+        new_dataset = Dataset(name=new_dataset_name, user=request.user)
+        new_dataset.file.save(f"{new_dataset_name}.csv", io.BytesIO(output.getvalue().encode('utf-8')))
+        new_dataset.save()
+
+        serializer = DatasetSerializer(new_dataset)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class CreateDatasetFromDiffusionView(APIView):
     permission_classes = [IsAuthenticated, IsApprovedUser]
