@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import DatasetDownloadView, DatasetGroupingView, DatasetListView, DatasetMetaView
+from .views import DatasetDownloadView, DatasetGroupingView, DatasetListView, DatasetMetaView, CreateDatasetFromDiffusionView
 
 urlpatterns = [
     path("", DatasetListView.as_view(), name="dataset-list"),
@@ -9,4 +9,5 @@ urlpatterns = [
     ),
     path("meta/<identifier>/", DatasetMetaView.as_view(), name="dataset-meta"),
     path("group/", DatasetGroupingView.as_view(), name="dataset-group"),
+    path("from-diffusion/<int:diffusion_id>/", CreateDatasetFromDiffusionView.as_view(), name="create-dataset-from-diffusion"),
 ]
